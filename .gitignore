@@ -1,0 +1,20 @@
+#Dependencies
+node_modules/
+
+# Enviroment variables - NEVER commit this
+.env
+
+# DocSync's own working directory (generated files)
+.docsync/
+
+# Test coverage reports
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+#Editor files
+.vscode/
+.idea/
+*.swp

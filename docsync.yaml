@@ -1,0 +1,31 @@
+# DocSync Configuration
+# Full reference: https://docsync.dev/docs/config
+
+version: 1
+
+# Which files to track for documentation
+track:
+  - src/**/*.ts
+  - src/**/*.js
+
+# Files to ignore
+ignore:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/node_modules/**"
+
+# Output settings
+output:
+  format: markdown      # markdown | mdx
+  dir: docs/
+
+# Documentation style
+style:
+  tone: technical
+  include_examples: true
+  heading_style: google
+
+# Drift detection settings
+drift:
+  threshold: 75         # 0-100. Drift above this threshold triggers a doc update
+  auto_pr: true         # Automatically open a PR with updated docs

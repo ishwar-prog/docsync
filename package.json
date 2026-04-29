@@ -1,0 +1,46 @@
+{
+  "name": "docsync",
+  "version": "0.1.0",
+  "description": "Autp-updating documentation that stays in sync with your code",
+  "main": "src/index.js",
+  "bin": {
+    "docsync": "./bin/docsync.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "node bin/docsync.js",
+    "test": "jest",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "documentation",
+    "developer-tools",
+    "ast",
+    "github-app",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "Ishwar Suthar <ishwar16suthar@gmail.com>",
+  "type": "commonjs",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^14.0.3",
+    "dotenv": "^17.4.2",
+    "fs-extra": "^11.3.4",
+    "glob": "^13.0.6",
+    "js-yaml": "^4.1.1",
+    "ora": "^9.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "jest": "^30.3.0"
+  }
+}
