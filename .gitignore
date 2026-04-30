@@ -18,3 +18,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Github App 
+*.pem
+github-app.pem

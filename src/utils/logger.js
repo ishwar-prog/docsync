@@ -36,5 +36,8 @@ const logger = {
   }
 };
 
+function testWebhookFunction(userId, eventType) {
+  console.log(userId, eventType);
+}
 
 module.exports = logger;
