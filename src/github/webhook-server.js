@@ -194,12 +194,22 @@ async function handlePullRequestEvent({ payload }) {
     return;
   }
 
-  // Skip PRs from DocSync itself — prevents infinite loops
-  // (DocSync opens a companion PR → that triggers another webhook → infinite)
-  if (pr.head.ref.startsWith('docsync/')) {
-    logger.info(`PR #${pullNumber} is from DocSync — skipping to prevent loop`);
-    return;
-  }
+ // Skip PRs from DocSync bot — prevents infinite loops
+// We check BOTH the branch prefix AND the sender type
+// Branch prefix alone can be spoofed by contributors
+const isDocSyncBranch = pr.head.ref.startsWith('docsync/');
+const isBotSender = payload.sender?.type === 'Bot';
+
+if (isDocSyncBranch && isBotSender) {
+  logger.info(`PR #${pullNumber} is from DocSync bot — skipping to prevent loop`);
+  return;
+}
+
+// Extra guard: if branch is docsync/ but sender is human, log a warning
+// This means someone manually created a docsync/ branch — process it normally
+if (isDocSyncBranch && !isBotSender) {
+  logger.warn(`PR #${pullNumber} has docsync/ prefix but was opened by a human — processing normally`);
+}
 
   try {
     // Get an authenticated Octokit instance for this installation

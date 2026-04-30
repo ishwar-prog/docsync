@@ -251,18 +251,35 @@ async function loadRepoSnapshot(octokit, owner, repo, branch) {
       octokit, owner, repo, '.docsync/snapshot.json', branch
     );
 
+    // File doesn't exist — legitimate first run, use empty baseline
     if (!content) {
       logger.warn('No snapshot found in repo. Treating all constructs as undocumented.');
       return buildEmptySnapshot();
     }
 
-    const snapshot = JSON.parse(content);
+    // File exists but fails to parse — this is a real error, not first run
+    // Don't silently use empty baseline — that would cause false drift
+    let snapshot;
+    try {
+      snapshot = JSON.parse(content);
+    } catch (parseError) {
+      logger.error(`Snapshot exists but is corrupted: ${parseError.message}`);
+      logger.info('Fix: run docsync init locally and push the corrected .docsync/snapshot.json');
+      throw parseError; // Re-throw — do not process with bad data
+    }
+
     logger.success('Loaded snapshot from repo');
     return snapshot;
 
   } catch (error) {
-    logger.warn(`Could not load snapshot: ${error.message}. Using empty baseline.`);
-    return buildEmptySnapshot();
+    // 404 means file doesn't exist — legitimate first run
+    if (error.status === 404) {
+      logger.warn('No snapshot found in repo. Treating all constructs as undocumented.');
+      return buildEmptySnapshot();
+    }
+    // Any other error (network, auth, corruption) — fail loudly
+    logger.error(`Could not load snapshot: ${error.message}`);
+    throw error;
   }
 }
 
@@ -334,25 +351,31 @@ async function handleDriftDetected({
     logger.success(`Committed documentation to ${companionBranch}`);
 
     // Open the companion PR
-    const companionPR = await createPullRequest(octokit, owner, repo, {
-      title: `📄 DocSync: Update docs for PR #${pullNumber} — "${prTitle}"`,
-      body: buildCompanionPRBody(driftReport, pullNumber),
-      head: companionBranch,
-      base: baseBranch,
-    });
-    logger.success(`Opened companion PR #${companionPR.number}: ${companionPR.html_url}`);
+   const companionPR = await createPullRequest(octokit, owner, repo, {
+  title: `📄 DocSync: Update docs for PR #${pullNumber} — "${prTitle}"`,
+  body: buildCompanionPRBody(driftReport, pullNumber),
+  head: companionBranch,
+  base: baseBranch,
+});
+logger.success(`Opened companion PR #${companionPR.number}: ${companionPR.html_url}`);
 
-    // Post a comment on the original PR linking to the companion
-    await postDriftComment(
-      octokit, owner, repo, pullNumber, driftReport, companionPR
-    );
+// Comment posting is best-effort — companion PR already exists
+// A comment failure must NOT roll back or misreport the PR creation
+try {
+  await postDriftComment(
+    octokit, owner, repo, pullNumber, driftReport, companionPR
+  );
+} catch (commentError) {
+  logger.warn(`Companion PR created, but failed to post comment: ${commentError.message}`);
+  // Continue — companion PR is the critical deliverable, comment is secondary
+}
 
-    return {
-      action: 'companion_pr_created',
-      driftScore: driftReport.driftScore,
-      companionPRNumber: companionPR.number,
-      companionPRUrl: companionPR.html_url,
-    };
+return {
+  action: 'companion_pr_created',
+  driftScore: driftReport.driftScore,
+  companionPRNumber: companionPR.number,
+  companionPRUrl: companionPR.html_url,
+};
 
   } catch (error) {
     logger.error(`Failed to create companion PR: ${error.message}`);
