@@ -1,0 +1,92 @@
+# .github/workflows/ci.yml
+#
+# DocSync's own continuous integration pipeline.
+# This runs on every PR to the DocSync repo itself.
+#
+# DOGFOODING: DocSync uses DocSync to check its own documentation.
+# This is the strongest possible signal that the product works —
+# and it means every PR to DocSync gets drift-checked automatically.
+# This is what you show YC: "We use it ourselves."
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Job 1: Lint and test
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint --if-present
+
+      - name: Run tests
+        run: npm test --if-present
+
+  # Job 2: Verify the action definition is valid
+  validate-action:
+    name: Validate Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check action.yml exists
+        run: test -f action.yml && echo "✅ action.yml found"
+
+      - name: Check entry point exists
+        run: test -f src/action/index.js && echo "✅ Action entry point found"
+
+      - name: Validate package.json
+        run: node -e "require('./package.json'); console.log('✅ package.json valid')"
+
+  # Job 3: DocSync checks itself (dogfooding)
+  # Only runs on PRs — not on push to main (no PR context)
+  docsync-self-check:
+    name: DocSync Self-Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: DocSync — Check own documentation
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          drift-threshold: '80'
+          open-companion-pr: 'false'
+          post-comment: 'true'
+        continue-on-error: true
+        # continue-on-error: true means drift doesn't fail the CI
+        # Remove this line when you want drift to block merges

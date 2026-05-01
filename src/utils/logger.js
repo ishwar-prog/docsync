@@ -47,4 +47,11 @@ function formatDuration(milliseconds) {
   return `${seconds}.${ms.toString().padStart(3, '0')}s`;
 }
 
+function logBanner(text) {
+  const border = '═'.repeat(text.length + 4);
+  console.log(`╔${border}╗`);
+  console.log(`║  ${text}  ║`);
+  console.log(`╚${border}╝`);
+}
+
 module.exports = logger;
