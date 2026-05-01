@@ -68,9 +68,17 @@ async function handlePullRequest({ octokit, context, inputs }) {
   }
 
   const pullNumber = pr.number;
-  const headSha = pr.head.sha;
-  const baseBranch = pr.base.ref;
+  // Default outputs for all exit paths
+  core.setOutput('drift-detected', 'false');
+  core.setOutput('drift-score', '0');
+  core.setOutput('files-analyzed', '0');
+  core.setOutput('constructs-found', '0');
+  core.setOutput('companion-pr-number', '');
+  core.setOutput('companion-pr-url', '');
+
   const prTitle = pr.title;
+  const baseBranch = pr.base.ref;
+  const headSha = pr.head.sha;
 
   core.info(`Processing PR #${pullNumber}: "${prTitle}"`);
   core.info(`Base: ${baseBranch} ← Head: ${pr.head.ref}`);
@@ -80,8 +88,6 @@ async function handlePullRequest({ octokit, context, inputs }) {
   // Skip draft PRs
   if (pr.draft) {
     core.info(`PR #${pullNumber} is a draft — skipping`);
-    core.setOutput('drift-detected', 'false');
-    core.setOutput('drift-score', '0');
     return;
   }
 
@@ -109,9 +115,6 @@ async function handlePullRequest({ octokit, context, inputs }) {
 
   if (codeFiles.length === 0) {
     core.info('No JS/TS files changed — nothing for DocSync to analyze');
-    core.setOutput('drift-detected', 'false');
-    core.setOutput('drift-score', '0');
-    core.setOutput('files-analyzed', '0');
     return;
   }
 
@@ -176,7 +179,7 @@ async function handlePullRequest({ octokit, context, inputs }) {
 
     // ── Act on Results ─────────────────────────────────────────────────────
 
-    if (!driftReport.hasDrift || driftReport.driftScore < inputs.driftThreshold) {
+    if (!driftReport.hasDrift) {
       core.info('✅ Docs are in sync — no action needed');
 
       if (inputs.postComment) {
@@ -185,6 +188,18 @@ async function handlePullRequest({ octokit, context, inputs }) {
 
       await reporter.writeSummary({
         status: 'in_sync',
+        driftReport,
+        pullNumber,
+      });
+
+      return;
+    }
+
+    if (driftReport.hasDrift && driftReport.driftScore < inputs.driftThreshold) {
+      core.info(`✅ Drift detected (${driftReport.driftScore}/100), but below threshold (${inputs.driftThreshold}/100) — no action needed`);
+
+      await reporter.writeSummary({
+        status: 'drift_below_threshold',
         driftReport,
         pullNumber,
       });

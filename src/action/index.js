@@ -127,13 +127,10 @@ function readInputs() {
  */
 function validateInputs(inputs) {
   if (!inputs.githubToken) {
-    core.setFailed('github-token is required. Add it to your workflow with: github-token: ${{ secrets.GITHUB_TOKEN }}');
-    process.exit(1);
+    throw new Error('github-token is required. Add it to your workflow with: github-token: ${{ secrets.GITHUB_TOKEN }}');
   }
-
   if (isNaN(inputs.driftThreshold) || inputs.driftThreshold < 0 || inputs.driftThreshold > 100) {
-    core.setFailed(`Invalid drift-threshold: "${inputs.driftThreshold}". Must be a number between 0 and 100.`);
-    process.exit(1);
+    throw new Error(`Invalid drift-threshold: "${inputs.driftThreshold}". Must be a number between 0 and 100.`);
   }
 
   const hasAIKey = inputs.groqApiKey || inputs.anthropicApiKey;

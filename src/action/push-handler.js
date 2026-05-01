@@ -59,9 +59,11 @@ async function handlePush({ octokit, context, inputs }) {
 
     if (scanResult.totalFound === 0) {
       core.info('No trackable files found. Check docsync.yaml track patterns.');
+      core.setOutput('files-analyzed', '0');
+      core.setOutput('drift-score', '0');
+      core.setOutput('drift-detected', 'false');
       return;
     }
-
     core.info(`Scanning ${scanResult.totalFound} file(s)...`);
     const parsedFiles = await parseFiles(scanResult.files);
 

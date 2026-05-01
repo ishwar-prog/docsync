@@ -33,10 +33,11 @@ const reporter = {
   async writeSummary({ status, driftReport, pullNumber, companionPR, generationSummary }) {
     const summary = core.summary;
 
-    if (status === 'in_sync') {
+     if (status === 'in_sync') {
+      const targetLabel = pullNumber ? `PR #${pullNumber}` : 'this run';
       summary
         .addHeading('✅ DocSync — Documentation In Sync', 2)
-        .addRaw(`No documentation drift detected in PR #${pullNumber}.\n\n`)
+        .addRaw(`No documentation drift detected in ${targetLabel}.\n\n`)
         .addTable([
           [{ data: 'Metric', header: true }, { data: 'Value', header: true }],
           ['Drift Score', '0/100'],

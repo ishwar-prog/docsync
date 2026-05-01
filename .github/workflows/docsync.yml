@@ -76,7 +76,7 @@ jobs:
       # Step 4: Run DocSync
       # This is the only step that does the actual work
       - name: Run DocSync
-        uses: ./
+        uses: ishwar-prog/docsync@v1
         # 'uses: ./' means "use the action defined in this repo's action.yml"
         # When you publish to GitHub Marketplace, users will write:
         # uses: ishwar-prog/docsync@v1
