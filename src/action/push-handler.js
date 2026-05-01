@@ -54,7 +54,7 @@ async function handlePush({ octokit, context, inputs }) {
   const cwd = process.cwd();
 
   try {
-    const config = loadConfig(cwd);
+    const config = loadConfig(cwd, inputs.configPath);
     const scanResult = await scanRepository(cwd, config);
 
     if (scanResult.totalFound === 0) {

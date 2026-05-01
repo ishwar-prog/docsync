@@ -4,11 +4,8 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs-extra');
 const core = require('@actions/core');
-const github = require('@actions/github');
 
-const { parseFiles } = require('../core/parser');
 const { analyzeDrift } = require('../core/drift');
-const { readSnapshot } = require('../core/snapshot');
 const {
   generateDocumentationForDrift,
   renderDocumentationAsMarkdown,
@@ -183,7 +180,7 @@ async function handlePullRequest({ octokit, context, inputs }) {
       core.info('✅ Docs are in sync — no action needed');
 
       if (inputs.postComment) {
-        await postNoDriftComment(octokit, repo.owner, repo.repo, pullNumber, driftReport);
+        await postNoDriftComment(octokit, repo.owner, repo.repo, pullNumber);
       }
 
       await reporter.writeSummary({
@@ -278,7 +275,7 @@ async function handlePullRequest({ octokit, context, inputs }) {
     // Always clean up temp files
     try {
       await fs.remove(tempDir);
-    } catch (_) {
+    } catch {
       // Cleanup failure is non-fatal
     }
   }
@@ -534,7 +531,7 @@ ${companionInfo}
 /**
  * Posts a positive "docs in sync" comment.
  */
-async function postNoDriftComment(octokit, owner, repo, pullNumber, driftReport) {
+async function postNoDriftComment(octokit, owner, repo, pullNumber) {
   const body = `## ✅ DocSync — Documentation In Sync
 
 No documentation drift detected in this PR.

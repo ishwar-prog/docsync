@@ -19,7 +19,7 @@ on:
   # pull_request_target gives write permissions needed to open companion PRs
   # and post comments — even from fork PRs
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - master
@@ -48,7 +48,7 @@ jobs:
       # DocSync downloads the PR's changed files via the GitHub API
       # (read-only, no execution) — this is safe for fork PRs.
       - name: Checkout base branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           # Fetch full history so snapshot diffs are accurate
@@ -57,26 +57,16 @@ jobs:
       # Step 2: Set up Node.js
       # We use the version specified in package.json engines field
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           # Cache npm dependencies — speeds up subsequent runs by 30-60 seconds
           cache: 'npm'
 
-      # Step 3: Install DocSync dependencies
-      # --frozen-lockfile ensures we use exact versions from package-lock.json
-      # This makes builds reproducible and prevents surprise dependency updates
-      - name: Install dependencies
-        run: npm ci
-        # npm ci is used instead of npm install in CI because:
-        # 1. It reads from package-lock.json exactly (reproducible)
-        # 2. It's faster (skips dependency resolution)
-        # 3. It fails if package-lock.json is out of sync (catches mistakes)
-
       # Step 4: Run DocSync
       # This is the only step that does the actual work
       - name: Run DocSync
-        uses: ishwar-prog/docsync@v1
+        uses: ishwar-prog/docsync@f5aadc9910e382d6c42a193a180384284c13f01b # v1
         # 'uses: ./' means "use the action defined in this repo's action.yml"
         # When you publish to GitHub Marketplace, users will write:
         # uses: ishwar-prog/docsync@v1
