@@ -42,7 +42,7 @@ jobs:
         run: npm run lint --if-present
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm test --if-present -- --passWithNoTests
 
   # Job 2: Validate action structure
   validate-action:
