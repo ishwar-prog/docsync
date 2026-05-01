@@ -6,10 +6,10 @@ const { scanRepository } = require('../core/scanner');
 const { parseFiles } = require('../core/parser');
 const { writeSnapshot, snapshotExists } = require('../core/snapshot');
 
-async function initCommand(options) {
+async function initCommand() {
   logger.header('DocSync — Initializing');
   logger.newline();
-
+``
   const cwd = process.cwd();
 
   // Step 1: Write config if missing

@@ -36,22 +36,4 @@ const logger = {
   }
 };
 
-function testWebhookFunction(userId, eventType) {
-  console.log(userId, eventType);
-}
-
-function formatDuration(milliseconds) {
-  if (milliseconds < 1000) return `${milliseconds}ms`;
-  const seconds = Math.floor(milliseconds / 1000);
-  const ms = milliseconds % 1000;
-  return `${seconds}.${ms.toString().padStart(3, '0')}s`;
-}
-
-function logBanner(text) {
-  const border = '═'.repeat(text.length + 4);
-  console.log(`╔${border}╗`);
-  console.log(`║  ${text}  ║`);
-  console.log(`╚${border}╝`);
-}
-
 module.exports = logger;

@@ -13,7 +13,7 @@ const {
   renderDocumentationAsMarkdown,
 } = require('../core/generator');
 
-async function fixCommand(options) {
+async function fixCommand() {
   logger.header('DocSync — Generating Documentation');
   logger.newline();
 

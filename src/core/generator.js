@@ -201,11 +201,11 @@ For API routes (Express/Fastify endpoints), use this documentation shape:
   "path": "/exact/route/path/:withParams",
   "pathParams": [{"name": "paramName", "type": "string", "description": "what this identifies"}],
   "queryParams": [{"name": "paramName", "type": "string", "description": "purpose", "required": false}],
-  "requestBody": {"description": "what the body should contain", "example": "{\"field\": \"value\"}"},
+  "requestBody": {"description": "what the body should contain", "example": "{field: value}"},
   "responses": [
-    {"status": 200, "description": "Success case description", "example": "{\"id\": \"usr_123\", \"email\": \"alice@example.com\"}"},
-    {"status": 400, "description": "Validation failure", "example": "{\"error\": \"Invalid email format\"}"},
-    {"status": 401, "description": "Authentication required", "example": "{\"error\": \"Unauthorized\"}"}
+    {"status": 200, "description": "Success case description", "example": "{id: 'usr_123', email: 'alice@example.com'}"},
+    {"status": 400, "description": "Validation failure", "example": "{error: 'Invalid email format'}"},
+    {"status": 401, "description": "Authentication required", "example": "{error: 'Unauthorized'}"}
   ],
   "authentication": "Describe auth requirement or null if public",
   "rateLimit": "Rate limit info or null if unknown"
@@ -463,7 +463,6 @@ Generate the documentation JSON now. Start with { and end with }. Nothing else.`
  */
 function inferModulePurpose(fileName, constructs) {
   const name = fileName.toLowerCase().replace(/\.(js|ts|jsx|tsx)$/, '');
-  const constructNames = constructs.map(c => c.name.toLowerCase()).join(' ');
 
   const purposes = {
     'logger': 'Logging utility — provides structured terminal output with colored status indicators',
@@ -701,7 +700,7 @@ function parseModelResponse(responseText, fileName) {
         logger.warn(`Salvaged partial JSON for ${fileName}`);
         return salvaged;
       }
-    } catch (_) {
+    } catch {
       // Salvage failed — return null
     }
 
@@ -734,7 +733,7 @@ function attemptJSONSalvage(jsonText) {
         if (construct.key && construct.name) {
           constructs.push(construct);
         }
-      } catch (_) {
+      } catch {
         // Skip malformed construct
       }
     }

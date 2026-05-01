@@ -6,11 +6,9 @@ const fs = require('fs-extra');
 const logger = require('../utils/logger');
 const { parseFile } = require('../core/parser');
 const { analyzeDrift } = require('../core/drift');
-const { readSnapshot } = require('../core/snapshot');
 const {
   getPRFiles,
   getFileContent,
-  getDefaultBranch,
   createBranch,
   commitFile,
   createPullRequest,

@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('path');
 const logger = require('../utils/logger');
 const { buildConstructKey, hashSignature } = require('./snapshot');
 
@@ -143,7 +142,7 @@ function analyzeDrift(snapshot, currentFiles, cwd) {
  * @param {string} cwd
  * @returns {object}
  */
-function buildCurrentFileMap(parsedFiles, cwd) {
+function buildCurrentFileMap(parsedFiles) {
   const map = {};
 
   for (const parsedFile of parsedFiles) {
