@@ -17,6 +17,10 @@ const {
   postPRComment,
   getBranchSha,
 } = require('./client');
+const {
+  generateDocumentationForDrift,
+  renderDocumentationAsMarkdown,
+} = require('../core/generator');
 
 /**
  * PR PROCESSOR — THE HEART OF DOCSYNC'S AUTOMATION
@@ -316,77 +320,85 @@ async function handleDriftDetected({
   driftReport,
   parsedFiles,
 }) {
-  logger.header(`Drift detected (score: ${driftReport.driftScore}/100) — creating companion PR`);
+  logger.header(`Drift detected (score: ${driftReport.driftScore}/100) — generating documentation`);
 
-  // Generate the documentation content
-  // In Part 5, this will call the Claude API.
-  // For now, we generate a structured Markdown report of what changed.
-  const docContent = generateDriftDocumentation(driftReport, parsedFiles, pullNumber);
+  // Generate documentation using Claude
+  let docContent;
+  let generationSummary;
 
-  // Create a unique branch name for the companion PR
-  // Format: docsync/pr-{number}-{timestamp}
-  // Why include timestamp? In case the PR is updated and DocSync runs again —
-  // we don't want branch name collisions.
+  try {
+    generationSummary = await generateDocumentationForDrift(parsedFiles, driftReport);
+
+    // Render all generated docs into a single Markdown file
+    const renderedSections = [];
+
+    for (const result of generationSummary.results) {
+      const markdown = renderDocumentationAsMarkdown(result, result.filePath);
+      renderedSections.push(markdown);
+    }
+
+    docContent = renderedSections.join('\n\n---\n\n');
+
+    // If generation produced nothing, fall back to drift report
+    if (!docContent.trim()) {
+      docContent = generateDriftDocumentation(driftReport, parsedFiles, pullNumber);
+    }
+
+  } catch (error) {
+    logger.warn(`Claude generation failed: ${error.message}. Using drift report fallback.`);
+    docContent = generateDriftDocumentation(driftReport, parsedFiles, pullNumber);
+    generationSummary = null;
+  }
+
   const companionBranch = `docsync/pr-${pullNumber}-${Date.now()}`;
 
   try {
-    // Get the SHA of the base branch to branch from
     const baseSha = await getBranchSha(octokit, owner, repo, baseBranch);
-
-    // Create the companion branch
     await createBranch(octokit, owner, repo, companionBranch, baseSha);
     logger.success(`Created branch: ${companionBranch}`);
 
-    // Commit the documentation file to the companion branch
-    const docFilePath = 'docs/drift-report.md';
     await commitFile(
       octokit,
       owner,
       repo,
-      docFilePath,
+      'docs/api-reference.md',
       docContent,
-      `docs: auto-update documentation for PR #${pullNumber} [DocSync]`,
+      `docs: auto-generate documentation for PR #${pullNumber} [DocSync]`,
       companionBranch
     );
     logger.success(`Committed documentation to ${companionBranch}`);
 
-    // Open the companion PR
-   const companionPR = await createPullRequest(octokit, owner, repo, {
-  title: `📄 DocSync: Update docs for PR #${pullNumber} — "${prTitle}"`,
-  body: buildCompanionPRBody(driftReport, pullNumber),
-  head: companionBranch,
-  base: baseBranch,
-});
-logger.success(`Opened companion PR #${companionPR.number}: ${companionPR.html_url}`);
+    const companionPR = await createPullRequest(octokit, owner, repo, {
+      title: `📄 DocSync: Update docs for PR #${pullNumber} — "${prTitle}"`,
+      body: buildCompanionPRBody(driftReport, pullNumber, generationSummary),
+      head: companionBranch,
+      base: baseBranch,
+    });
+    logger.success(`Opened companion PR #${companionPR.number}: ${companionPR.html_url}`);
 
-// Comment posting is best-effort — companion PR already exists
-// A comment failure must NOT roll back or misreport the PR creation
-try {
-  await postDriftComment(
-    octokit, owner, repo, pullNumber, driftReport, companionPR
-  );
-} catch (commentError) {
-  logger.warn(`Companion PR created, but failed to post comment: ${commentError.message}`);
-  // Continue — companion PR is the critical deliverable, comment is secondary
-}
+    try {
+      await postDriftComment(
+        octokit, owner, repo, pullNumber, driftReport, companionPR
+      );
+    } catch (commentError) {
+      logger.warn(`Companion PR created, but failed to post comment: ${commentError.message}`);
+    }
 
-return {
-  action: 'companion_pr_created',
-  driftScore: driftReport.driftScore,
-  companionPRNumber: companionPR.number,
-  companionPRUrl: companionPR.html_url,
-};
+    return {
+      action: 'companion_pr_created',
+      driftScore: driftReport.driftScore,
+      companionPRNumber: companionPR.number,
+      companionPRUrl: companionPR.html_url,
+      tokensUsed: generationSummary?.totalInputTokens + generationSummary?.totalOutputTokens,
+    };
 
   } catch (error) {
     logger.error(`Failed to create companion PR: ${error.message}`);
-
-    // Even if PR creation fails, post a comment warning about drift
     try {
       await postDriftWarningComment(octokit, owner, repo, pullNumber, driftReport);
     } catch (commentError) {
       logger.error(`Also failed to post comment: ${commentError.message}`);
     }
-
     return {
       action: 'drift_detected_pr_failed',
       driftScore: driftReport.driftScore,
@@ -451,7 +463,11 @@ function generateDriftDocumentation(driftReport, parsedFiles, pullNumber) {
  * @param {number} sourcePRNumber
  * @returns {string} Markdown PR body
  */
-function buildCompanionPRBody(driftReport, sourcePRNumber) {
+function buildCompanionPRBody(driftReport, sourcePRNumber, generationSummary = null) {
+  const generationInfo = generationSummary
+    ? `\n### AI Generation\n- **Model:** Claude Sonnet\n- **Tokens used:** ${generationSummary.totalInputTokens + generationSummary.totalOutputTokens}\n- **Estimated cost:** $${generationSummary.estimatedCostUSD}`
+    : '';
+
   return `## 📄 DocSync — Automated Documentation Update
 
 This PR was automatically created by **DocSync** because PR #${sourcePRNumber} introduced code changes that caused documentation drift.
@@ -463,6 +479,7 @@ This PR was automatically created by **DocSync** because PR #${sourcePRNumber} i
 | Drift Score | **${driftReport.driftScore}/100** |
 | Files Affected | ${driftReport.summary.filesAffected} |
 | Total Changes | ${driftReport.summary.totalChanges} |
+${generationInfo}
 
 ### What Changed
 
@@ -472,12 +489,12 @@ ${Object.entries(driftReport.summary.byType)
 
 ### How to Review
 
-1. Check \`docs/drift-report.md\` for the detailed change analysis
-2. Update any documentation sections that need human judgment
+1. Check \`docs/api-reference.md\` for the AI-generated documentation
+2. Review for accuracy — AI is excellent but not perfect
 3. Merge this PR **alongside** or **after** PR #${sourcePRNumber}
 
 ---
-*🤖 Generated by [DocSync](https://github.com/ishwar-prog/docsync) — Auto-updating docs that stay true to your code*`;
+*🤖 Generated by [DocSync](https://github.com/ishwar-prog/docsync) using Claude Sonnet*`;
 }
 
 /**

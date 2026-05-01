@@ -13,7 +13,8 @@ ignore:
   - "**/*.test.ts"
   - "**/*.spec.ts"
   - "**/node_modules/**"
-
+  - "src/core/generator.js"
+  
 # Output settings
 output:
   format: markdown      # markdown | mdx
@@ -29,3 +30,4 @@ style:
 drift:
   threshold: 75         # 0-100. Drift above this threshold triggers a doc update
   auto_pr: true         # Automatically open a PR with updated docs
+
