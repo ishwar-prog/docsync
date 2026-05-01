@@ -32,6 +32,9 @@
   "author": "Ishwar Suthar <ishwar16suthar@gmail.com>",
   "type": "commonjs",
   "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/exec": "^3.0.0",
+    "@actions/github": "^9.1.1",
     "@anthropic-ai/sdk": "^0.92.0",
     "@octokit/app": "^4.3.0",
     "@octokit/rest": "^19.0.13",

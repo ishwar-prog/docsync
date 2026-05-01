@@ -1,0 +1,115 @@
+# action.yml
+# This file defines DocSync as a reusable GitHub Action.
+# It is the manifest that GitHub reads to understand what this action does,
+# what it needs (inputs), what it produces (outputs), and how to run it.
+#
+# When a user puts `uses: ishwar-prog/docsync@v1` in their workflow,
+# GitHub reads THIS file to know what to do.
+
+name: 'DocSync'
+description: 'Auto-detect documentation drift and generate updated docs when PRs change your code'
+author: 'Ishwar Suthar'
+
+# Branding appears in the GitHub Marketplace listing
+# Choose an icon from: https://feathericons.com
+branding:
+  icon: 'book-open'
+  color: 'blue'
+
+# Inputs are parameters the user passes to your action in their workflow.
+# Each input has a name, description, whether it's required, and a default value.
+#
+# Design principle: minimize required inputs.
+# Every required input is friction for adoption.
+# Use sensible defaults so the action works with zero configuration.
+inputs:
+
+  github-token:
+    description: >
+      GitHub token for API operations (creating PRs, posting comments).
+      Use the automatically provided GITHUB_TOKEN secret.
+      Requires permissions: pull-requests:write, contents:write.
+    required: true
+    default: '${{ github.token }}'
+    # Note: We provide a default pointing to the automatic token.
+    # Users can override with a PAT if they need cross-repo operations.
+
+  groq-api-key:
+    description: >
+      Groq API key for AI documentation generation.
+      Get a free key at console.groq.com.
+      If not provided, DocSync will detect drift but skip AI generation.
+    required: false
+    default: ''
+
+  anthropic-api-key:
+    description: >
+      Anthropic API key for Claude-powered documentation generation.
+      Takes precedence over groq-api-key if both are provided.
+    required: false
+    default: ''
+
+  drift-threshold:
+    description: >
+      Drift score (0-100) above which DocSync opens a companion PR.
+      Higher = stricter. Recommended: 70-80 for most projects.
+    required: false
+    default: '75'
+
+  config-path:
+    description: >
+      Path to docsync.yaml config file relative to repo root.
+      Defaults to docsync.yaml in the repository root.
+    required: false
+    default: 'docsync.yaml'
+
+  open-companion-pr:
+    description: >
+      Whether to automatically open a companion PR with updated documentation.
+      Set to 'false' to only report drift without opening PRs (useful for
+      repos that prefer manual documentation updates).
+    required: false
+    default: 'true'
+
+  post-comment:
+    description: >
+      Whether to post a drift report comment on the triggering PR.
+      Disable if you prefer silent operation.
+    required: false
+    default: 'true'
+
+# Outputs are values your action produces that subsequent steps can use.
+# For example, a step after DocSync could read the drift score and
+# make its own decision based on it.
+outputs:
+
+  drift-score:
+    description: 'The repository drift score (0-100). 0 = docs in sync, 100 = maximum drift.'
+
+  drift-detected:
+    description: 'true if drift was detected above the threshold, false otherwise.'
+
+  companion-pr-number:
+    description: 'The PR number of the companion documentation PR, if one was created.'
+
+  companion-pr-url:
+    description: 'The URL of the companion documentation PR, if one was created.'
+
+  files-analyzed:
+    description: 'Number of JS/TS files analyzed in this run.'
+
+  constructs-found:
+    description: 'Total number of functions, classes, and routes found.'
+
+# The runs section tells GitHub HOW to execute this action.
+# 'node20' means: use Node.js 20 runtime, execute the main file directly.
+# This is a JavaScript Action — no Docker required.
+#
+# Why node20 specifically?
+# GitHub Actions supports node16, node20. Node 16 reaches end-of-life.
+# Node 20 is the current LTS and what GitHub recommends for new actions.
+runs:
+  using: 'node20'
+  main: 'src/action/index.js'
+  # post: 'src/action/cleanup.js'  # Runs after the job completes (for cleanup)
+  # pre: 'src/action/pre.js'       # Runs before the job starts (for setup)

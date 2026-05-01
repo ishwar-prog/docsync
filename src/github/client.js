@@ -3,7 +3,6 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const { Octokit } = require('@octokit/rest');
-const logger = require('../utils/logger');
 
 /**
  * MANUAL GITHUB APP AUTHENTICATION

@@ -150,7 +150,7 @@ function createWebhookServer() {
   });
 
   // Global error handler — catches any unhandled Express errors
-  app.use((error, req, res, next) => {
+  app.use((error, req, res) => {
     logger.error(`Express error: ${error.message}`);
     res.status(500).json({ error: 'Internal server error' });
   });

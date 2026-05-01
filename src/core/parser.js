@@ -123,9 +123,9 @@ if (tree.rootNode && typeof tree.rootNode.hasError === "function" && tree.rootNo
  * @param {string} filePath - File path for error reporting
  * @returns {Construct[]} Array of extracted constructs
  */
-function extractConstructs(rootNode, sourceCode, filePath) {
+function extractConstructs(rootNode, sourceCode) {
   const constructs = [];
-
+  
   // We use an iterative walk (stack-based) instead of recursion.
   // Why? Because deeply nested code can cause stack overflow errors
   // with recursive approaches. Real-world files can be thousands of
