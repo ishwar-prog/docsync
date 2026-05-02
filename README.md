@@ -4,9 +4,9 @@
 
 **Auto-updating documentation that stays true to your code.**
 
-[![npm version](https://img.shields.io/npm/v/docsync.svg?style=flat)](https://www.npmjs.com/package/docsync)
+[![npm version](https://img.shields.io/npm/v/@ishwarrr/docsync.svg?style=flat)](https://www.npmjs.com/package/@ishwarrr/docsync)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-ready-2088FF?logo=github-actions)](https://github.com/marketplace/actions/docsync)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-ready-2088FF?logo=github-actions)](https://github.com/ishwar-prog/docsync)
 
 AI coding agents ship code 5–10× faster than documentation can be written.
 DocSync detects when your docs drift from your code — and fixes it automatically.
@@ -52,9 +52,9 @@ not as text, but as a semantic tree of functions, classes, and API routes.
 
 **As a CLI tool:**
 ```bash
-npm install -g docsync
+npm install -g @ishwarrr/docsync
 # or without installing:
-npx docsync init
+npx @ishwarrr/docsync init
 ```
 
 **As a GitHub Action** (recommended):
@@ -72,19 +72,19 @@ npx docsync init
 
 **1. Initialize your repo (run once):**
 ```bash
-npx docsync init
+npx @ishwarrr/docsync init
 git add .docsync/snapshot.json
 git commit -m "docs: initialize DocSync baseline"
 ```
 
 **2. Check for drift anytime:**
 ```bash
-npx docsync check
+npx @ishwarrr/docsync check
 ```
 
 **3. Auto-fix with AI:**
 ```bash
-npx docsync fix
+npx @ishwarrr/docsync fix
 ```
 
 DocSync calls the AI, generates documentation for every drifted construct,
@@ -121,10 +121,10 @@ jobs:
 
 | Command | Description |
 |---------|-------------|
-| `docsync init` | Scan repo, parse all files, create baseline snapshot |
-| `docsync check` | Detect documentation drift, show drift score |
-| `docsync fix` | Generate AI documentation for all drifted constructs |
-| `docsync check --json` | Machine-readable output for CI integration |
+| `npx @ishwarrr/docsync init` | Scan repo, parse all files, create baseline snapshot |
+| `npx @ishwarrr/docsync check` | Detect documentation drift, show drift score |
+| `npx @ishwarrr/docsync fix` | Generate AI documentation for all drifted constructs |
+| `npx @ishwarrr/docsync check --json` | Machine-readable output for CI integration |
 
 ---
 
@@ -193,8 +193,8 @@ drift:
 git clone https://github.com/ishwar-prog/docsync
 cd docsync
 npm install
-npm link          # makes `docsync` available globally
-docsync init      # DocSync documents itself
+npm link
+npx @ishwarrr/docsync init
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -211,6 +211,7 @@ MIT © [Ishwar Suthar](https://github.com/ishwar-prog)
 
 Built with Tree-sitter · Groq Llama 3.3 · GitHub Actions · Node.js
 
-**If DocSync saves you time, give it a ⭐**
+**[@ishwarrr/docsync](https://www.npmjs.com/package/@ishwarrr/docsync) · If DocSync saves you time, give it a ⭐**
 
 </div>
+
