@@ -8,31 +8,24 @@
 # 2. Add your AI API key as a repository secret:
 #    - Go to repo Settings → Secrets and variables → Actions
 #    - Add secret named GROQ_API_KEY (get free key at console.groq.com)
-# 3. Run `npx docsync init` locally to create your baseline snapshot
+# 3. Run `npx @ishwarrr/docsync init` locally to create your baseline snapshot
 # 4. Commit the .docsync/snapshot.json file
 # That's it — DocSync runs automatically on every PR.
 
 name: DocSync — Documentation Drift Detection
 
 on:
-  # Trigger on PRs to the main branch
-  # pull_request_target gives write permissions needed to open companion PRs
-  # and post comments — even from fork PRs
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
     branches:
       - main
       - master
 
-  # Trigger on pushes to main to update the snapshot
   push:
     branches:
       - main
       - master
 
-# Permissions required by DocSync:
-# - contents:write — to create branches and commit documentation files
-# - pull-requests:write — to open companion PRs and post comments
 permissions:
   contents: write
   pull-requests: write
@@ -43,45 +36,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the BASE branch (main), NOT the PR branch.
-      # SECURITY: We check out main, not the PR's code.
-      # DocSync downloads the PR's changed files via the GitHub API
-      # (read-only, no execution) — this is safe for fork PRs.
       - name: Checkout base branch
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
-          # Fetch full history so snapshot diffs are accurate
           fetch-depth: 0
 
-      # Step 2: Set up Node.js
-      # We use the version specified in package.json engines field
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
-          # Cache npm dependencies — speeds up subsequent runs by 30-60 seconds
+          node-version: '24'
           cache: 'npm'
 
-      # Step 4: Run DocSync
-      # This is the only step that does the actual work
+      - name: Install dependencies
+        run: npm install
+
       - name: Run DocSync
         uses: ./
-        # We pass inputs as environment variables — this is the standard way for GitHub Actions.
-        # 'uses: ./' means "use the action defined in this repo's action.yml"
-        # When you publish to GitHub Marketplace, users will write:
-        # uses: ishwar-prog/docsync@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           groq-api-key: ${{ secrets.GROQ_API_KEY }}
-          # anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}  # Alternative
           drift-threshold: '75'
           open-companion-pr: 'true'
           post-comment: 'true'
         id: docsync
 
-      # Step 5: Use DocSync's outputs in subsequent steps
-      # This is optional — shows how downstream steps can react to drift
       - name: Report drift status
         if: always()
         run: |
