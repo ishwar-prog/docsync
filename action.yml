@@ -110,6 +110,6 @@ outputs:
 # Node 20 is the current LTS and what GitHub recommends for new actions.
 runs:
   using: 'node20'
-  main: 'src/action/index.js'
+  main: 'dist/index.js'
   # post: 'src/action/cleanup.js'  # Runs after the job completes (for cleanup)
   # pre: 'src/action/pre.js'       # Runs before the job starts (for setup)
