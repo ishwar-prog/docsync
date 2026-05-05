@@ -34,16 +34,16 @@ async function checkCommand(options) {
   // Guard: snapshot must exist before we can check drift.
   // Without a baseline, there's nothing to compare against.
   if (!snapshotExists(cwd)) {
-    logger.error('No snapshot found. Run `docsync init` first to create a baseline.');
+    logger.error('No snapshot found. Run `npx @ishwarrr/docsync init` first to create a baseline.');
     logger.info('DocSync needs a baseline snapshot to detect drift.');
-    logger.info('Run: docsync init');
+    logger.info('Run: npx @ishwarrr/docsync init');
     process.exit(2);
   }
 
   // Step 1: Read the saved snapshot
   const snapshot = readSnapshot(cwd);
   if (!snapshot) {
-    logger.error('Snapshot is corrupted or incompatible. Run `docsync init` to rebuild.');
+    logger.error('Snapshot is corrupted or incompatible. Run `npx @ishwarrr/docsync init` to rebuild.');
     process.exit(2);
   }
 
@@ -175,8 +175,8 @@ function displayDriftReport(report, config, cwd) {
   // ── Action Prompt ─────────────────────────────────────────────────────────
   if (report.driftScore >= threshold) {
     logger.header('Next Steps');
-    console.log(`  Run ${chalk.cyan('docsync fix')} to auto-generate updated documentation`);
-    console.log(`  Or update your docs manually and run ${chalk.cyan('docsync init')} to reset the baseline`);
+    console.log(`  Run ${chalk.cyan('npx @ishwarrr/docsync fix')} to auto-generate updated documentation`);
+    console.log(`  Or update your docs manually and run ${chalk.cyan('npx @ishwarrr/docsync init')} to reset the baseline`);
     logger.newline();
   }
 }
