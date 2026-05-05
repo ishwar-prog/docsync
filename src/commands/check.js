@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('path');
 const chalk = require('chalk');
 const logger = require('../utils/logger');
 const { loadConfig } = require('../utils/config');
@@ -90,7 +89,7 @@ async function checkCommand(options) {
  * @param {object} config
  * @param {string} cwd
  */
-function displayDriftReport(report, config, cwd) {
+function displayDriftReport(report, config) {
   const threshold = config.drift?.threshold ?? 75;
 
   // ── Repo-Level Score Banner ──────────────────────────────────────────────

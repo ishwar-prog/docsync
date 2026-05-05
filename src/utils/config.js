@@ -50,15 +50,16 @@ const DEFAULT_CONFIG = {
  * but unspecified fields fall back to defaults.
  *
  * @param {string} cwd - The directory to look for docsync.yaml in
+ * @param {string} configFilename - The config file name/path relative to cwd
  * @returns {object} The merged configuration object
  */
-function loadConfig(cwd = process.cwd()) {
-  const configPath = path.join(cwd, 'docsync.yaml');
+function loadConfig(cwd = process.cwd(), configFilename = 'docsync.yaml') {
+  const configPath = path.resolve(cwd, configFilename);
 
   // If no config file exists, that's fine — use all defaults.
   // This is important: the tool should work without any configuration.
   if (!fs.pathExistsSync(configPath)) {
-    logger.warn('No docsync.yaml found. Using default configuration.');
+    logger.warn(`No ${configFilename} found. Using default configuration.`);
     logger.info('Run `docsync init` to create a config file.');
     return DEFAULT_CONFIG;
   }

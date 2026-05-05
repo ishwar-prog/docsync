@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Job 1: Lint and test
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      # ✅ Debug step (keep this for now, remove later)
+      - name: Debug files
+        run: |
+          echo "Current dir:"
+          pwd
+          echo "Files:"
+          ls -la
+
+      # ✅ Lint (will now correctly detect eslint.config.cjs)
+      - name: Run linter
+        run: npm run lint --if-present
+
+      - name: Run tests
+        run: npm test --if-present -- --passWithNoTests
+
+  # Job 2: Validate action structure
+  validate-action:
+    name: Validate Action
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check action.yml exists
+        run: test -f action.yml && echo "✅ action.yml found"
+
+      - name: Check entry point exists
+        run: test -f src/action/index.js && echo "✅ Action entry point found"
+
+      - name: Validate package.json
+        run: node -e "require('./package.json'); console.log('✅ package.json valid')"
+
+  # Job 3: DocSync self-check (dogfooding)
+  docsync-self-check:
+    name: DocSync Self-Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: DocSync — Check own documentation
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          drift-threshold: '80'
+          open-companion-pr: 'false'
+          post-comment: 'true'
+        continue-on-error: true

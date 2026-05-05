@@ -44,6 +44,14 @@ program
     require('../src/commands/check')(options);
   });
 
+program
+  .command('fix')
+  .description('Generate documentation for drifted constructs using Claude')
+  .option('--dry-run', 'Show what would be generated without writing files')
+  .action((options) => {
+    require('../src/commands/fix')(options);
+  });
+
 // Handle unknown commands gracefully
 program.on('command:*', ([unknownCommand]) => {
   const logger = require('../src/utils/logger');
