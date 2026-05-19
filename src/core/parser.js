@@ -80,11 +80,28 @@ async function parseFile(filePath) {
   // Tree-sitter is synchronous — despite the async function wrapper,
   // this line blocks. We wrap in async because file reading is async
   // and callers expect a Promise interface for consistency.
-  const tree = parser.parse(sourceCode);
+  //
+  // IMPORTANT: parser.parse() is a native N-API call and CAN throw.
+  // "Invalid argument" is the most common error — it happens when:
+  //   - The file is very large (>1MB by default)
+  //   - The source contains null bytes or invalid UTF-8 sequences
+  //   - There is a Tree-sitter grammar version mismatch
+  // We must catch it here, not at the call site, because the outer
+  // try/catch only wraps the file read, not the parse step.
+  let tree;
+  try {
+    tree = parser.parse(sourceCode);
+  } catch (parseError) {
+    logger.warn(
+      `Tree-sitter could not parse ${path.basename(filePath)}: ${parseError.message}. ` +
+      `File size: ${(Buffer.byteLength(sourceCode, 'utf8') / 1024).toFixed(1)}KB. Skipping.`
+    );
+    return { status: 'skipped', reason: 'parse_error', filePath };
+  }
 
   // Tree-sitter never throws on syntax errors — instead, it creates
   // ERROR nodes in the tree. We check for these and warn the user.
-if (tree.rootNode && typeof tree.rootNode.hasError === "function" && tree.rootNode.hasError()) {
+  if (tree.rootNode && typeof tree.rootNode.hasError === 'function' && tree.rootNode.hasError()) {
     logger.warn(`Syntax errors detected in ${path.basename(filePath)} — extraction may be incomplete`);
     // We continue parsing anyway — Tree-sitter recovers gracefully
     // and most of the file will still be correctly parsed
