@@ -207,11 +207,12 @@ async function handlePullRequest({ octokit, context, inputs }) {
     // Drift detected above threshold
     core.warning(`Drift detected: ${driftReport.driftScore}/100 exceeds threshold of ${inputs.driftThreshold}/100`);
 
-    // Generate AI documentation if API key is available
+    // Generate AI documentation — groq/anthropic keys take priority if set,
+    // otherwise generator.js falls back to GitHub Models via GITHUB_TOKEN.
     let generationSummary = null;
-    const hasAIKey = process.env.GROQ_API_KEY || process.env.ANTHROPIC_API_KEY;
+    const hasAIProvider = process.env.GROQ_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GITHUB_TOKEN;
 
-    if (hasAIKey) {
+    if (hasAIProvider) {
       core.info('Generating documentation with AI...');
       try {
         generationSummary = await generateDocumentationForDrift(parsedFiles, driftReport);
@@ -220,7 +221,7 @@ async function handlePullRequest({ octokit, context, inputs }) {
         core.warning(`AI generation failed: ${genError.message}. Proceeding with drift report only.`);
       }
     } else {
-      core.info('No AI key — skipping documentation generation');
+      core.info('No AI provider available — skipping documentation generation');
     }
 
     // Build the documentation content

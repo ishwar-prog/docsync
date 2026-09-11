@@ -63,8 +63,9 @@ npx @ishwarrr/docsync init
 - uses: ishwar-prog/docsync@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
-    groq-api-key: ${{ secrets.GROQ_API_KEY }}
 ```
+
+No API key needed — DocSync generates documentation with [GitHub Models](https://github.com/marketplace/models) using the `github-token` you're already passing in. Just add `models: read` to your workflow's `permissions:` block (see below).
 
 ---
 
@@ -90,11 +91,16 @@ npx @ishwarrr/docsync fix
 DocSync calls the AI, generates documentation for every drifted construct,
 and writes professional Markdown to your `docs/` folder.
 
+Running `fix` locally (outside a GitHub Action) needs an AI provider in
+your environment — export one of `GITHUB_TOKEN` (a token with access to
+GitHub Models, e.g. `export GITHUB_TOKEN=$(gh auth token)`), `GROQ_API_KEY`,
+or `ANTHROPIC_API_KEY` before running it.
+
 ---
 
 ## GitHub Action
 
-Add DocSync to any repository in 3 lines:
+Add DocSync to any repository — zero signup required:
 
 ```yaml
 name: DocSync
@@ -102,6 +108,7 @@ on: [pull_request]
 permissions:
   contents: write
   pull-requests: write
+  models: read       # lets DocSync call GitHub Models for AI generation
 jobs:
   docsync:
     runs-on: ubuntu-latest
@@ -110,10 +117,23 @@ jobs:
       - uses: ishwar-prog/docsync@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          groq-api-key: ${{ secrets.GROQ_API_KEY }}
 ```
 
-**Get a free Groq API key** at [console.groq.com](https://console.groq.com) — no credit card required.
+That's it. DocSync uses [GitHub Models](https://github.com/marketplace/models)
+(`openai/gpt-4o-mini` by default) to generate documentation, authenticated
+with the `github-token` you're already passing in — no separate account,
+no API key to manage.
+
+**Want a different model or higher throughput?** Provide your own key as a
+repository secret and it takes precedence over GitHub Models:
+
+```yaml
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}         # console.groq.com
+          # or
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }} # console.anthropic.com
+```
 
 ---
 
@@ -209,7 +229,7 @@ MIT © [Ishwar Suthar](https://github.com/ishwar-prog)
 
 <div align="center">
 
-Built with Tree-sitter · Groq Llama 3.3 · GitHub Actions · Node.js
+Built with Tree-sitter · GitHub Models · GitHub Actions · Node.js
 
 **[@ishwarrr/docsync](https://www.npmjs.com/package/@ishwarrr/docsync) · If DocSync saves you time, give it a ⭐**
 

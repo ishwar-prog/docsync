@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  models: read
 
 jobs:
   # Job 1: Lint and test
@@ -85,7 +86,6 @@ jobs:
         uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          groq-api-key: ${{ secrets.GROQ_API_KEY }}
           drift-threshold: '80'
           open-companion-pr: 'false'
           post-comment: 'true'

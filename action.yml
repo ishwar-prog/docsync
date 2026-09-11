@@ -26,9 +26,11 @@ inputs:
 
   github-token:
     description: >
-      GitHub token for API operations (creating PRs, posting comments).
+      GitHub token for API operations (creating PRs, posting comments) and,
+      when no groq-api-key or anthropic-api-key is provided, for calling
+      GitHub Models to generate documentation — DocSync's zero-config path.
       Use the automatically provided GITHUB_TOKEN secret.
-      Requires permissions: pull-requests:write, contents:write.
+      Requires permissions: pull-requests:write, contents:write, models:read.
     required: true
     default: '${{ github.token }}'
     # Note: We provide a default pointing to the automatic token.
@@ -36,16 +38,21 @@ inputs:
 
   groq-api-key:
     description: >
-      Groq API key for AI documentation generation.
-      Get a free key at console.groq.com.
-      If not provided, DocSync will detect drift but skip AI generation.
+      Optional. Groq API key for AI documentation generation.
+      Get a free key at console.groq.com. Takes precedence over GitHub Models
+      if provided — use this if you want higher throughput than GitHub
+      Models' free tier. If neither this nor anthropic-api-key is set,
+      DocSync generates docs with GitHub Models using github-token instead
+      (no signup required).
     required: false
     default: ''
 
   anthropic-api-key:
     description: >
-      Anthropic API key for Claude-powered documentation generation.
-      Takes precedence over groq-api-key if both are provided.
+      Optional. Anthropic API key for Claude-powered documentation
+      generation. Takes precedence over groq-api-key and GitHub Models if
+      provided. If neither this nor groq-api-key is set, DocSync generates
+      docs with GitHub Models using github-token instead (no signup required).
     required: false
     default: ''
 

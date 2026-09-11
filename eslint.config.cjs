@@ -18,7 +18,8 @@ module.exports = [
         setInterval: "readonly",
         clearInterval: "readonly",
         setImmediate: "readonly",
-        clearImmediate: "readonly"
+        clearImmediate: "readonly",
+        fetch: "readonly"
       }
     }
   }

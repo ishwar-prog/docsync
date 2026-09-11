@@ -53,6 +53,9 @@ async function run() {
     // without any modification
     if (inputs.groqApiKey) process.env.GROQ_API_KEY = inputs.groqApiKey;
     if (inputs.anthropicApiKey) process.env.ANTHROPIC_API_KEY = inputs.anthropicApiKey;
+    // Zero-config fallback: generator.js uses this to call GitHub Models
+    // when no groq-api-key/anthropic-api-key was provided.
+    process.env.GITHUB_TOKEN = inputs.githubToken;
     process.env.NODE_ENV = 'production';
 
     // ── Log Run Context ──────────────────────────────────────────────────
@@ -135,7 +138,11 @@ function validateInputs(inputs) {
 
   const hasAIKey = inputs.groqApiKey || inputs.anthropicApiKey;
   if (!hasAIKey) {
-    core.warning('No AI API key provided (groq-api-key or anthropic-api-key). Drift detection will work but documentation generation will be skipped.');
+    core.info(
+      'No groq-api-key or anthropic-api-key provided — DocSync will generate documentation ' +
+      'with GitHub Models using github-token. Make sure your workflow grants ' +
+      '`permissions: models: read` (see the README) or generation will be skipped.'
+    );
   }
 }
 

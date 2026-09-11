@@ -6,10 +6,20 @@ const { validateDocumentationResult } = require('./schema');
 const { buildConstructKey } = require('./snapshot');
 
 /**
- * DOCUMENTATION GENERATOR — GROQ/LLAMA EDITION
+ * DOCUMENTATION GENERATOR — MULTI-PROVIDER EDITION
  *
  * This module generates production-grade technical documentation
- * using Groq's API (Llama 3 70B model).
+ * by calling an LLM. It supports three providers, tried in this order:
+ *
+ * 1. Anthropic  — used when ANTHROPIC_API_KEY is set (explicit opt-in)
+ * 2. Groq       — used when GROQ_API_KEY is set (explicit opt-in)
+ * 3. GitHub Models — used by default via GITHUB_TOKEN, which every
+ *    GitHub Actions run already has. This is what makes DocSync work
+ *    with zero setup: no signup, no secret to create. The workflow
+ *    only needs `permissions: models: read` (see action.yml).
+ *
+ * Anthropic and Groq are opt-in overrides for people who want a
+ * specific model or higher throughput than GitHub Models' free tier.
  *
  * THE CORE INSIGHT OF THIS MODULE:
  *
@@ -50,6 +60,14 @@ const { buildConstructKey } = require('./snapshot');
  */
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
+// GitHub Models catalog names models as "publisher/model". gpt-4o-mini sits
+// in the "low" rate-limit tier, which gives the most headroom for the
+// zero-config default path. Override with DOCSYNC_MODEL if needed.
+const GITHUB_MODELS_MODEL = process.env.DOCSYNC_MODEL || 'openai/gpt-4o-mini';
+const GITHUB_MODELS_API_URL = 'https://models.github.ai/inference/chat/completions';
 const MAX_TOKENS = 4000;
 const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 1000;
@@ -236,7 +254,6 @@ async function generateFileDocumentation(parsedFile, fileReport = null, options 
     return null;
   }
 
-  const client = getGroqClient();
   const fileName = getFileName(parsedFile.filePath);
 
   const constructsToDocument = selectConstructsToDocument(
@@ -253,7 +270,7 @@ async function generateFileDocumentation(parsedFile, fileReport = null, options 
   logger.info(`Generating documentation for ${constructsToDocument.length} construct(s) in ${fileName}...`);
 
   const userPrompt = buildUserPrompt(parsedFile, constructsToDocument);
-  const result = await callGroqWithRetry(client, userPrompt, fileName);
+  const result = await callModelWithRetry(userPrompt, fileName);
 
   if (!result) {
     logger.warn(`Documentation generation failed for ${fileName} after ${MAX_RETRIES} retries`);
@@ -275,7 +292,8 @@ async function generateFileDocumentation(parsedFile, fileReport = null, options 
  * @returns {Promise<GenerationSummary>}
  */
 async function generateDocumentationForDrift(parsedFiles, driftReport) {
-  logger.header('Generating Documentation with Groq (Llama 3.3 70B)');
+  const provider = resolveProvider();
+  logger.header(`Generating Documentation with ${describeProvider(provider)}`);
 
   const results = [];
   let totalInputTokens = 0;
@@ -314,18 +332,19 @@ async function generateDocumentationForDrift(parsedFiles, driftReport) {
     }
   }
 
+  const isFreeProvider = provider.name === 'groq' || provider.name === 'github-models';
   const summary = {
     filesProcessed: results.length,
     totalInputTokens,
     totalOutputTokens,
-    estimatedCostUSD: '0.000000', // Groq free tier
+    estimatedCostUSD: isFreeProvider ? '0.000000' : null,
     results,
   };
 
   logger.newline();
   logger.success(`Documentation generated: ${results.length} file(s)`);
   logger.info(`Total tokens — Input: ${totalInputTokens}, Output: ${totalOutputTokens}`);
-  logger.info('Cost: $0.00 (Groq free tier)');
+  logger.info(isFreeProvider ? 'Cost: $0.00 (free tier)' : 'Cost: billed to your Anthropic account');
 
   return summary;
 }
@@ -550,13 +569,7 @@ function selectConstructsToDocument(allConstructs, fileReport, onlyDrifted) {
 }
 
 /**
- * Calls the Groq API with exponential backoff retry logic.
- *
- * GROQ-SPECIFIC CONSIDERATIONS:
- *
- * Groq's infrastructure is optimized for inference speed (they use
- * custom LPU chips). This means responses are fast but the free tier
- * has rate limits — typically 30 requests/minute and 14,400/day.
+ * Calls the resolved LLM provider with exponential backoff retry logic.
  *
  * Our retry logic handles:
  * - 429 Too Many Requests (rate limit) — back off and retry
@@ -564,40 +577,24 @@ function selectConstructsToDocument(allConstructs, fileReport, onlyDrifted) {
  * - Network failures — retry
  * - JSON parse failures — do NOT retry (model produced bad output, retrying won't help)
  *
- * @param {Groq} client
  * @param {string} userPrompt
  * @param {string} fileName
  * @returns {Promise<GenerationResult|null>}
  */
-async function callGroqWithRetry(client, userPrompt, fileName) {
+async function callModelWithRetry(userPrompt, fileName) {
+  const provider = resolveProvider();
+
+  if (!provider.name) {
+    logger.error('No AI provider available — set anthropic-api-key, groq-api-key, or make sure github-token is passed to the action with `permissions: models: read`.');
+    return null;
+  }
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const completion = await client.chat.completions.create({
-        model: GROQ_MODEL,
-        max_tokens: MAX_TOKENS,
-        // Temperature 0.1 — near-deterministic but with tiny variation
-        // to prevent the model from getting "stuck" in repetitive patterns
-        // Pure 0 occasionally causes issues with some Llama versions
-        temperature: 0.1,
-        // Top-p sampling — only consider tokens comprising 95% of probability mass
-        // This eliminates low-probability garbage tokens while preserving quality
-        top_p: 0.95,
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_PROMPT,
-          },
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      });
-
-      const responseText = completion.choices[0]?.message?.content || '';
+      const { responseText, usage, model } = await callProvider(provider, userPrompt);
 
       if (!responseText.trim()) {
-        throw new Error('Empty response from Groq API');
+        throw new Error(`Empty response from ${describeProvider(provider)}`);
       }
 
       const parsed = parseModelResponse(responseText, fileName);
@@ -611,11 +608,8 @@ async function callGroqWithRetry(client, userPrompt, fileName) {
       }
 
       // Attach metadata
-      parsed.tokenUsage = {
-        inputTokens: completion.usage?.prompt_tokens || 0,
-        outputTokens: completion.usage?.completion_tokens || 0,
-      };
-      parsed.model = GROQ_MODEL;
+      parsed.tokenUsage = usage;
+      parsed.model = model;
       parsed.generatedAt = new Date().toISOString();
 
       return parsed;
@@ -625,17 +619,156 @@ async function callGroqWithRetry(client, userPrompt, fileName) {
       const isRetryable = isRetryableError(error);
 
       if (isLastAttempt || !isRetryable) {
-        logger.error(`Groq API failed for ${fileName} (attempt ${attempt}): ${error.message}`);
+        logger.error(`${describeProvider(provider)} failed for ${fileName} (attempt ${attempt}): ${error.message}`);
         return null;
       }
 
       const delayMs = BASE_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-      logger.warn(`Groq API attempt ${attempt}/${MAX_RETRIES} failed. Retrying in ${delayMs}ms...`);
+      logger.warn(`${describeProvider(provider)} attempt ${attempt}/${MAX_RETRIES} failed. Retrying in ${delayMs}ms...`);
       await sleep(delayMs);
     }
   }
 
   return null;
+}
+
+/**
+ * Dispatches a single chat-completion call to the resolved provider and
+ * normalizes the response shape across Anthropic, Groq, and GitHub Models.
+ *
+ * @param {{name: string}} provider
+ * @param {string} userPrompt
+ * @returns {Promise<{responseText: string, usage: {inputTokens: number, outputTokens: number}, model: string}>}
+ */
+async function callProvider(provider, userPrompt) {
+  switch (provider.name) {
+    case 'anthropic':
+      return callAnthropic(userPrompt);
+    case 'groq':
+      return callGroq(userPrompt);
+    case 'github-models':
+      return callGitHubModels(userPrompt);
+    default:
+      throw new Error(`Unknown AI provider: ${provider.name}`);
+  }
+}
+
+async function callAnthropic(userPrompt) {
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': ANTHROPIC_VERSION,
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: MAX_TOKENS,
+      temperature: 0.1,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw await httpError(response, 'Anthropic API');
+  }
+
+  const data = await response.json();
+  const responseText = (data.content || []).map(block => block.text || '').join('');
+
+  return {
+    responseText,
+    usage: {
+      inputTokens: data.usage?.input_tokens || 0,
+      outputTokens: data.usage?.output_tokens || 0,
+    },
+    model: ANTHROPIC_MODEL,
+  };
+}
+
+async function callGroq(userPrompt) {
+  const client = getGroqClient();
+
+  const completion = await client.chat.completions.create({
+    model: GROQ_MODEL,
+    max_tokens: MAX_TOKENS,
+    // Temperature 0.1 — near-deterministic but with tiny variation
+    // to prevent the model from getting "stuck" in repetitive patterns
+    // Pure 0 occasionally causes issues with some Llama versions
+    temperature: 0.1,
+    // Top-p sampling — only consider tokens comprising 95% of probability mass
+    // This eliminates low-probability garbage tokens while preserving quality
+    top_p: 0.95,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+  });
+
+  return {
+    responseText: completion.choices[0]?.message?.content || '',
+    usage: {
+      inputTokens: completion.usage?.prompt_tokens || 0,
+      outputTokens: completion.usage?.completion_tokens || 0,
+    },
+    model: GROQ_MODEL,
+  };
+}
+
+/**
+ * Calls GitHub Models — the zero-config default. Authenticated with the
+ * GITHUB_TOKEN every Actions run already has, so no signup or secret is
+ * required. The workflow must grant `permissions: models: read`; a 403
+ * here almost always means that permission is missing.
+ */
+async function callGitHubModels(userPrompt) {
+  const response = await fetch(GITHUB_MODELS_API_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+    },
+    body: JSON.stringify({
+      model: GITHUB_MODELS_MODEL,
+      max_tokens: MAX_TOKENS,
+      temperature: 0.1,
+      top_p: 0.95,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error(
+        'GitHub Models API error 403 — the workflow token is missing the `models: read` permission. ' +
+        'Add `permissions:\n  models: read` to your docsync.yml workflow, or provide groq-api-key / anthropic-api-key instead.'
+      );
+    }
+    throw await httpError(response, 'GitHub Models API');
+  }
+
+  const data = await response.json();
+  const responseText = data.choices?.[0]?.message?.content || '';
+
+  return {
+    responseText,
+    usage: {
+      inputTokens: data.usage?.prompt_tokens || 0,
+      outputTokens: data.usage?.completion_tokens || 0,
+    },
+    model: GITHUB_MODELS_MODEL,
+  };
+}
+
+async function httpError(response, label) {
+  const body = await response.text().catch(() => '');
+  const error = new Error(`${label} error ${response.status}: ${body.slice(0, 300)}`);
+  error.status = response.status;
+  return error;
 }
 
 /**
@@ -1000,17 +1133,44 @@ function getKindBadge(kind) {
 let groqClient = null;
 function getGroqClient() {
   if (groqClient) return groqClient;
-
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    logger.error('GROQ_API_KEY is not set in .env');
-    logger.info('Get your free API key at: console.groq.com');
-    process.exit(1);
-  }
-
-  groqClient = new Groq({ apiKey });
+  groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
   logger.success('Groq client initialized (Llama 3.3 70B)');
   return groqClient;
+}
+
+/**
+ * Determines which AI provider to use, in priority order:
+ * an explicitly provided Anthropic or Groq key wins (the user opted in
+ * for a specific provider); otherwise fall back to GitHub Models using
+ * the GITHUB_TOKEN every Actions run already has. Cached per process
+ * since the environment doesn't change mid-run.
+ *
+ * @returns {{name: string|null}}
+ */
+let resolvedProvider = null;
+function resolveProvider() {
+  if (resolvedProvider) return resolvedProvider;
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    resolvedProvider = { name: 'anthropic' };
+  } else if (process.env.GROQ_API_KEY) {
+    resolvedProvider = { name: 'groq' };
+  } else if (process.env.GITHUB_TOKEN) {
+    resolvedProvider = { name: 'github-models' };
+  } else {
+    resolvedProvider = { name: null };
+  }
+
+  return resolvedProvider;
+}
+
+function describeProvider(provider) {
+  switch (provider.name) {
+    case 'anthropic': return `Anthropic (${ANTHROPIC_MODEL})`;
+    case 'groq': return `Groq (${GROQ_MODEL})`;
+    case 'github-models': return `GitHub Models (${GITHUB_MODELS_MODEL})`;
+    default: return 'no AI provider';
+  }
 }
 
 function isRetryableError(error) {

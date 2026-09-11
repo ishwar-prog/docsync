@@ -5,12 +5,14 @@
 #
 # SETUP INSTRUCTIONS FOR USERS:
 # 1. Copy this file to .github/workflows/docsync.yml in your repo
-# 2. Add your AI API key as a repository secret:
-#    - Go to repo Settings → Secrets and variables → Actions
-#    - Add secret named GROQ_API_KEY (get free key at console.groq.com)
-# 3. Run `npx @ishwarrr/docsync init` locally to create your baseline snapshot
-# 4. Commit the .docsync/snapshot.json file
-# That's it — DocSync runs automatically on every PR.
+# 2. Run `npx @ishwarrr/docsync init` locally to create your baseline snapshot
+# 3. Commit the .docsync/snapshot.json file
+# That's it — DocSync runs automatically on every PR using GitHub Models
+# (via the built-in GITHUB_TOKEN) for AI generation. No signup, no secrets.
+#
+# Want a different model or higher throughput? Add a groq-api-key or
+# anthropic-api-key repository secret and pass it below — it takes
+# precedence over GitHub Models.
 
 name: DocSync — Documentation Drift Detection
 
@@ -29,6 +31,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  models: read
 
 jobs:
   docsync:
@@ -55,7 +58,8 @@ jobs:
         uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          # groq-api-key: ${{ secrets.GROQ_API_KEY }}       # optional override
+          # anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }} # optional override
           drift-threshold: '75'
           open-companion-pr: 'true'
           post-comment: 'true'
